@@ -57,6 +57,14 @@ class UpdateProfileView(UserProfileRequiredMixin, generic.UpdateView):
     def get_object(self):
         return self.request.user.profile
 
+class ProfileDetailsView(UserProfileRequiredMixin, generic.DetailView):
+    model = UserProfile
+    template_name = 'users/profile/detail.html'
+
+    def get_object(self):
+        return self.request.user.profile
+
+
 
 class UserListAPI(generics.ListCreateAPIView):
     """
