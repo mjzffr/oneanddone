@@ -18,12 +18,45 @@
         {% endfor %}
       </ul>
     {% endif %}
-    <h3>{{ ngettext('{count} task', '{count} tasks', user.attempts_finished_count)|f(count=user.attempts_finished_count) }} {{ _('completed') }}</h3>
+    <h3>{{ ngettext('{count} task', '{count} tasks', attempts_finished)|f(count=user.attempts_finished_count) }} {{ _('completed') }}</h3>
     <ul>
-        {% for attempt in user.attempts_finished %}
-          <li><a href="{{ attempt.task.get_absolute_url() }}">{{ attempt.task.name }}</a> </li>
+        {% for attempt in attempts_finished %}
+          <li><a href="{{ attempt.task.get_absolute_url() }}">{{ attempt.task.name }}</a></li>
         {% endfor %}
     </ul>
+
+    {% if attempts_finished.has_other_pages() %}
+        <div class="pagination">
+          <a href="?page=1" class="pagination-first">
+            <span class="visually-hidden">{{ _('Go to first page') }}</span>
+          </a>
+
+          {% if attempts_finished.has_previous() %}
+              <a href="?page={{ attempts_finished.previous_page_number() }}" class="pagination-previous">
+                <span class="visually-hidden">{{ _('Go to previous page') }}</span>
+              </a>
+          {% endif %}
+
+          <span>
+            {% trans current_page=attempts_finished.number, total_pages=attempts_finished.paginator.num_pages %}
+              {{ current_page }} of {{ total_pages }}
+            {% endtrans %}
+          </span>
+
+          {% if attempts_finished.has_next() %}
+              <a href="?page={{ attempts_finished.next_page_number() }}" class="pagination-next">
+                <span class="visually-hidden">{{ _('Go to next page') }}</span>
+              </a>
+          {% endif %}
+
+          <a href="?page={{ attempts_finished.paginator.num_pages }}" class="pagination-last">
+            <span class="visually-hidden">{{ _('Go to last page') }}</span>
+          </a>
+
+
+    {% endif %}
+
+
 
 
   </section>
