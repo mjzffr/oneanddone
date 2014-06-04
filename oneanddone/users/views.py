@@ -68,16 +68,16 @@ class ProfileDetailsView(UserProfileRequiredMixin, generic.DetailView):
 
     def get_context_data(self, **kwargs):
         all_attempts_finished = self.request.user.taskattempt_set.filter(state=TaskAttempt.FINISHED)
-        #add pagination preferences to UserProfile?
-        num_items_per_page = 20
-        paginator = Paginator(all_attempts_finished, num_items_per_page)
+        paginator = Paginator(all_attempts_finished, 20)
         page = self.request.GET.get('page', 1)
+
         try:
             attempts_finished = paginator.page(page)
         except PageNotAnInteger:
             attempts_finished = paginator.page(1)
         except EmptyPage:
             attempts_finished = paginator.page(paginator.num_pages)
+
         context = super(ProfileDetailsView, self).get_context_data(**kwargs)
         context['attempts_finished'] = attempts_finished
         return context

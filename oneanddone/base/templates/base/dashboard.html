@@ -3,9 +3,7 @@
     {% if request.path == url('users.profile.details')  %}
       {% trans %}Dashboard{% endtrans %}
     {% else %}
-      {% trans name=user.profile.name %}
-        {{ name }}'s Dashboard
-      {% endtrans %}
+      {{ _("{name}'s Dashboard")|fe(name=user.profile.name) }}
     {% endif %}
   </h3>
 

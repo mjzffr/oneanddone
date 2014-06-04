@@ -6,15 +6,13 @@
 {% set title = _('User profile for {username}')|f(username=user.profile.name) %}
 
 {% block content %}
-<h1>{% trans name=user.profile.name %}
-      {{ name }}'s Profile
-    {% endtrans %}</h1>
+<h1>{{ _("{name}'s Profile")|fe(name=user.profile.name) }}</h1>
 
  {% include 'base/dashboard.html' %}
 
 <main class="billboard content-container">
 
-    <h3>{{ ngettext('{count} task', '{count} tasks', attempts_finished)|f(count=user.attempts_finished_count) }} {{ _('completed') }}</h3>
+    <h3>{{ ngettext('{count} task completed', '{count} tasks completed', attempts_finished)|f(count=user.attempts_finished_count) }}</h3>
     <ul>
         {% for attempt in attempts_finished %}
           <li><a href="{{ attempt.task.get_absolute_url() }}">{{ attempt.task.name }}</a></li>

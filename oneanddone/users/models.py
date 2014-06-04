@@ -37,6 +37,7 @@ def user_attempts_finished_count(self):
     return self.taskattempt_set.filter(state=TaskAttempt.FINISHED).count()
 User.add_to_class('attempts_finished_count', user_attempts_finished_count)
 
+
 @property
 def user_attempts_in_progress(self):
     """All task attempts the user has in progress."""
