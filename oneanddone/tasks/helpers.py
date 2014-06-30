@@ -4,5 +4,4 @@ from jingo import register
 def page_url(request, page):
     query = request.GET.copy()
     query['page'] = page
-    return ''.join([request.path, '?' , query.urlencode()])
-
+    return ''.join(['?' , query.urlencode()])
