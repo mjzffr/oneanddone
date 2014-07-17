@@ -14,6 +14,54 @@ from markdown import markdown
 
 from oneanddone.base.models import CachedModel, CreatedByModel, CreatedModifiedModel
 
+class TaskInvalidationCriteria(CachedModel, models.Model):
+    NOT_EQUAL = 0
+    EQUAL = 1
+    field_name = models.CharField(max_length=80)
+    field_value = models.CharField(max_length=80)
+    relation = models.IntegerField(choices=(
+                (EQUAL, '=='),
+                (NOT_EQUAL, '!=')
+               ))
+
+    def __unicode__(self):
+        return ''.join([self.field_name, self.relation, self.field_value])
+
+
+class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
+    name = models.CharField(max_length=255)
+    query = models.CharField(max_length=255)
+    template = models.ForeignKey('TaskTemplate')
+    invalidation_criteria = models.ManyToManyField(TaskInvalidationCriteria)
+
+    def __unicode__(self):
+        return self.name
+
+    query.help_text = """
+        The URL to the search query that yields the items you want to
+        create tasks from.
+    """
+
+
+class TaskExternalItem(CachedModel, models.Model):
+    # other sources might be Moztrap, etc.
+    BUGZILLA = 0
+    OTHER = 1
+    source = models.IntegerField(
+        choices=(
+            (BUGZILLA, 'Bugzilla@Mozilla'),
+            (OTHER, 'Other')
+        ),
+        default=BUGZILLA)
+
+
+class BugzillaBug(TaskExternalItem):
+    summary = models.CharField(max_length=255)
+    bugzilla_id = models.IntegerField(max_length=20, unique=True)
+
+    def __unicode__(self):
+        return ' '.join(['Bug', self.bugzilla_id])
+
 
 class TaskProject(CachedModel, CreatedModifiedModel, CreatedByModel):
     name = models.CharField(max_length=255)
@@ -36,11 +84,7 @@ class TaskType(CachedModel, CreatedModifiedModel, CreatedByModel):
         return self.name
 
 
-class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
-    """
-    Task for a user to attempt to fulfill.
-    """
-
+class AbstractTask(CachedModel, CreatedModifiedModel, CreatedByModel):
     project = models.ForeignKey(TaskProject, blank=True, null=True)
     team = models.ForeignKey(TaskTeam)
     type = models.ForeignKey(TaskType, blank=True, null=True)
@@ -56,7 +100,6 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
         ),
         default=EASY,
         verbose_name='task difficulty')
-    end_date = models.DateTimeField(blank=True, null=True)
     execution_time = models.IntegerField(
         choices=((i, i) for i in (15, 30, 45, 60)),
         blank=False,
@@ -65,12 +108,14 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     )
     instructions = models.TextField()
     is_draft = models.BooleanField(verbose_name='draft?')
+    is_valid = models.BooleanField(verbose_name='valid?')
     name = models.CharField(max_length=255, verbose_name='title')
     prerequisites = models.TextField(blank=True)
     repeatable = models.BooleanField(default=True)
     short_description = models.CharField(max_length=255, verbose_name='description')
-    start_date = models.DateTimeField(blank=True, null=True)
     why_this_matters = models.TextField(blank=True)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
 
     def _yield_html(self, field):
         """
@@ -86,6 +131,56 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     @property
     def keywords_list(self):
         return ', '.join([keyword.name for keyword in self.keyword_set.all()])
+    @property
+    def instructions_html(self):
+        return self._yield_html(self.instructions)
+
+    @property
+    def prerequisites_html(self):
+        return self._yield_html(self.prerequisites)
+
+    @property
+    def why_this_matters_html(self):
+        return self._yield_html(self.why_this_matters)
+
+    def get_absolute_url(self):
+        return reverse('tasks.detail', args=[self.id])
+
+    def get_edit_url(self):
+        return reverse('tasks.edit', args=[self.id])
+
+    def __unicode__(self):
+        return self.name
+
+    # Help text
+    instructions.help_text = """
+        Markdown formatting is applied. See
+        <a href="http://www.markdowntutorial.com/">http://www.markdowntutorial.com/</a> for a
+        primer on Markdown syntax.
+    """
+    execution_time.help_text = """
+        How many minutes will this take to finish?
+    """
+    start_date.help_text = """
+        Date the task will start to be available. Task is immediately available if blank.
+    """
+    end_date.help_text = """
+        If a task expires, it will not be shown to users regardless of whether it has been
+        finished.
+    """
+    is_draft.help_text = """
+        If you do not wish to publish the task yet, set it as a draft. Draft tasks will not
+        be viewable by contributors.
+    """
+    class Meta:
+        abstract = True
+
+class Task(AbstractTask):
+    """
+    Task for a user to attempt to fulfill.
+    """
+    external_item = models.ForeignKey(TaskExternalItem, blank=True, null=True)
+    batch = models.ForeignKey(TaskImportBatch, blank=True, null=True)
 
     @property
     def is_available(self):
@@ -111,27 +206,6 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     @property
     def is_completed(self):
         return not self.repeatable and self.taskattempt_set.filter(state=TaskAttempt.FINISHED).exists()
-
-    @property
-    def instructions_html(self):
-        return self._yield_html(self.instructions)
-
-    @property
-    def prerequisites_html(self):
-        return self._yield_html(self.prerequisites)
-
-    @property
-    def why_this_matters_html(self):
-        return self._yield_html(self.why_this_matters)
-
-    def get_absolute_url(self):
-        return reverse('tasks.detail', args=[self.id])
-
-    def get_edit_url(self):
-        return reverse('tasks.edit', args=[self.id])
-
-    def __unicode__(self):
-        return self.name
 
     @classmethod
     def is_available_filter(self, now=None, allow_expired=False, prefix=''):
@@ -168,31 +242,16 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
 
         return q_filter
 
-    # Help text
-    instructions.help_text = """
-        Markdown formatting is applied. See
-        <a href="http://www.markdowntutorial.com/">http://www.markdowntutorial.com/</a> for a
-        primer on Markdown syntax.
-    """
-    execution_time.help_text = """
-        How many minutes will this take to finish?
-    """
-    start_date.help_text = """
-        Date the task will start to be available. Task is immediately available if blank.
-    """
-    end_date.help_text = """
-        If a task expires, it will not be shown to users regardless of whether it has been
-        finished.
-    """
-    is_draft.help_text = """
-        If you do not wish to publish the task yet, set it as a draft. Draft tasks will not
-        be viewable by contributors.
-    """
+
+class TaskTemplate(AbstractTask):
+    """Task that is used as a base with a TaskImportBatch"""
+    pass
 
 
 class TaskKeyword(CachedModel, CreatedModifiedModel, CreatedByModel):
-    task = models.ForeignKey(Task, related_name='keyword_set')
-
+    # Keyword maybe be associated with either a task or a task_template
+    task = models.ForeignKey(Task, null=True, blank=True, related_name='keyword_set')
+    task_template = models.ForeignKey(TaskTemplate, null=True, blank=True, related_name='keyword_set')
     name = models.CharField(max_length=255, verbose_name='keyword')
 
     def __unicode__(self):
