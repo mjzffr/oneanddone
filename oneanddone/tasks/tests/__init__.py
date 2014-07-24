@@ -38,6 +38,7 @@ class TaskFactory(DjangoModelFactory):
     team = SubFactory(TaskTeamFactory)
     type = SubFactory(TaskTypeFactory)
     repeatable = True
+    #TODO mzf add other required, no-default fields
 
 
 class TaskAttemptFactory(DjangoModelFactory):
@@ -52,7 +53,8 @@ class TaskKeywordFactory(DjangoModelFactory):
     FACTORY_FOR = models.TaskKeyword
 
     creator = SubFactory(UserFactory)
-    task = SubFactory(TaskFactory)
+    # Task inherits from TaskTemplate
+    task_template = SubFactory(TaskFactory)
     name = Sequence(lambda n: 'test{0}'.format(n))
 
 

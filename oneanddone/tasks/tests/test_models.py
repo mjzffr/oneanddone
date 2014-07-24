@@ -166,8 +166,8 @@ class TaskTests(TestCase):
         """
         keywords_list should return a comma delimited list of keywords.
         """
-        TaskKeywordFactory.create_batch(4, task=self.task_draft)
-        keywords = TaskKeyword.objects.filter(task=self.task_draft)
+        TaskKeywordFactory.create_batch(4, task_template=self.task_draft)
+        keywords = TaskKeyword.objects.filter(task_template=self.task_draft)
         expected_keywords = ', '.join([keyword.name for keyword in keywords])
         eq_(self.task_draft.keywords_list, expected_keywords)
 

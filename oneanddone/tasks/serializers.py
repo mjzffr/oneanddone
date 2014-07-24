@@ -20,6 +20,7 @@ class TaskSerializer(serializers.ModelSerializer):
     type = serializers.SlugRelatedField(many=False, slug_field='name')
     keyword_set = TaskKeywordSerializer(required=False, many=True)
 
+    # TODO mzf add new fields like is_valid
     class Meta:
         model = Task
         fields = ('id', 'name', 'short_description', 'instructions',

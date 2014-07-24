@@ -32,7 +32,7 @@ class TaskFormTests(TestCase):
         Initial should contain the list of keywords from the task instance.
         """
         task = TaskFactory.create()
-        TaskKeywordFactory.create_batch(3, task=task)
+        TaskKeywordFactory.create_batch(3, task_template=task)
         form = TaskForm(instance=task)
         eq_(form.initial['keywords'], 'test1, test2, test3')
 
@@ -53,17 +53,17 @@ class TaskFormTests(TestCase):
         """
         user = UserFactory.create()
         task = TaskFactory.create()
-        TaskKeywordFactory.create_batch(3, task=task)
+        TaskKeywordFactory.create_batch(3, task_template=task)
         form = get_filled_taskform(task, keywords='test3, new_keyword')
         form.save(user)
 
-        removed_keyword = TaskKeyword.objects.filter(task=task, name='test1')
+        removed_keyword = TaskKeyword.objects.filter(task_template=task, name='test1')
         eq_(len(removed_keyword), 0)
 
-        added_keyword = TaskKeyword.objects.filter(task=task, name='new_keyword')
+        added_keyword = TaskKeyword.objects.filter(task_template=task, name='new_keyword')
         eq_(len(added_keyword), 1)
 
-        kept_keyword = TaskKeyword.objects.filter(task=task, name='test3')
+        kept_keyword = TaskKeyword.objects.filter(task_template=task, name='test3')
         eq_(len(kept_keyword), 1)
 
         # double-check on the keywords_list property
