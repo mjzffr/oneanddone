@@ -23,7 +23,7 @@ class TaskInvalidationCriterion(models.Model):
                 (EQUAL, '=='),
                 (NOT_EQUAL, '!=')
                ))
-    template = models.ForeignKey('TaskImportBatch')
+    batch = models.ForeignKey('TaskImportBatch')
 
     def __unicode__(self):
         return ''.join([self.field_name, self.relation, self.field_value])
@@ -130,6 +130,10 @@ class TaskTemplate(CachedModel, CreatedModifiedModel, CreatedByModel):
         return jinja2.Markup(cleaned_html)
 
     @property
+    def keywords_list(self):
+        return ', '.join([keyword.name for keyword in self.keyword_set.all()])
+
+    @property
     def instructions_html(self):
         return self._yield_html(self.instructions)
 
@@ -198,10 +202,6 @@ class Task(TaskTemplate):
         repeatable_filter = Q(~Q(user=user) & ~Q(state=TaskAttempt.ABANDONED))
         return self.is_available and (
             self.repeatable or not self.taskattempt_set.filter(repeatable_filter).exists())
-
-    @property
-    def keywords_list(self):
-        return ', '.join([keyword.name for keyword in self.keyword_set.all()])
 
     @property
     def is_taken(self):

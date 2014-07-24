@@ -106,7 +106,7 @@ class Migration(SchemaMigration):
             'field_value': ('django.db.models.fields.CharField', [], {'max_length': '80'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'relation': ('django.db.models.fields.IntegerField', [], {}),
-            'template': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['tasks.TaskImportBatch']"})
+            'batch': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['tasks.TaskImportBatch']"})
         },
         'tasks.taskkeyword': {
             'Meta': {'object_name': 'TaskKeyword'},
