@@ -14,6 +14,54 @@ from markdown import markdown
 
 from oneanddone.base.models import CachedModel, CreatedByModel, CreatedModifiedModel
 
+class TaskInvalidationCriterion(models.Model):
+    NOT_EQUAL = 0
+    EQUAL = 1
+    field_name = models.CharField(max_length=80)
+    field_value = models.CharField(max_length=80)
+    relation = models.IntegerField(choices=(
+                (EQUAL, '=='),
+                (NOT_EQUAL, '!=')
+               ))
+    batch = models.ForeignKey('TaskImportBatch')
+
+    def __unicode__(self):
+        return ''.join([self.field_name, self.relation, self.field_value])
+
+
+class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
+    name = models.CharField(max_length=255)
+    query = models.CharField(max_length=255)
+    template = models.ForeignKey('Task')
+
+    def __unicode__(self):
+        return self.name
+
+    query.help_text = """
+        The URL to the search query that yields the items you want to
+        create tasks from.
+    """
+
+
+class TaskImportedInfo(models.Model):
+    # other sources might be Moztrap, etc.
+    BUGZILLA = 0
+    OTHER = 1
+    source = models.IntegerField(
+        choices=(
+            (BUGZILLA, 'Bugzilla@Mozilla'),
+            (OTHER, 'Other')
+        ),
+        default=BUGZILLA)
+
+
+class BugzillaBug(TaskImportedInfo):
+    summary = models.CharField(max_length=255)
+    bugzilla_id = models.IntegerField(max_length=20, unique=True)
+
+    def __unicode__(self):
+        return ' '.join(['Bug', self.bugzilla_id])
+
 
 class TaskProject(CachedModel, CreatedModifiedModel, CreatedByModel):
     name = models.CharField(max_length=255)
@@ -44,6 +92,9 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     project = models.ForeignKey(TaskProject, blank=True, null=True)
     team = models.ForeignKey(TaskTeam)
     type = models.ForeignKey(TaskType, blank=True, null=True)
+    external_item = models.ForeignKey(TaskImportedInfo, blank=True, null=True)
+    # batch that created this Task
+    batch = models.ForeignKey(TaskImportBatch, blank=True, null=True)
 
     EASY = 1
     INTERMEDIATE = 2
@@ -65,6 +116,10 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     )
     instructions = models.TextField()
     is_draft = models.BooleanField(verbose_name='draft?')
+    is_valid = models.BooleanField(verbose_name='valid?', default=True)
+    # is_template is True if the Task is used to create/import a
+    # whole TaskImportBatch of tasks
+    is_template = models.BooleanField(verbose_name='template?', default=False)
     name = models.CharField(max_length=255, verbose_name='title')
     prerequisites = models.TextField(blank=True)
     repeatable = models.BooleanField(default=True)
