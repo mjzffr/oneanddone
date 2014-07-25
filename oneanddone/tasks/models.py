@@ -3,6 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes import generic
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Q
@@ -13,6 +15,53 @@ import jinja2
 from markdown import markdown
 
 from oneanddone.base.models import CachedModel, CreatedByModel, CreatedModifiedModel
+
+
+class TaskInvalidationCriterion(models.Model):
+    NOT_EQUAL = 0
+    EQUAL = 1
+    field_name = models.CharField(max_length=80)
+    field_value = models.CharField(max_length=80)
+    relation = models.IntegerField(choices=(
+                (EQUAL, '=='),
+                (NOT_EQUAL, '!=')
+               ))
+    batch = models.ForeignKey('TaskImportBatch')
+
+    def __unicode__(self):
+        return ''.join([self.field_name, self.relation, self.field_value])
+
+
+class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
+    name = models.CharField(max_length=255)
+    query = models.CharField(max_length=255)
+    # other sources might be Moztrap, etc.
+    BUGZILLA = 0
+    OTHER = 1
+    source = models.IntegerField(
+        choices=(
+            (BUGZILLA, 'Bugzilla@Mozilla'),
+            (OTHER, 'Other')
+        ),
+        default=BUGZILLA)
+    # (?) JSON-encoded results from the batch creation form
+    template_task_data = models.TextField()
+
+    def __unicode__(self):
+        return self.name
+
+    query.help_text = """
+        The URL to the search query that yields the items you want to
+        create tasks from.
+    """
+
+
+class BugzillaBug(models.Model):
+    summary = models.CharField(max_length=255)
+    bugzilla_id = models.IntegerField(max_length=20, unique=True)
+
+    def __unicode__(self):
+        return ' '.join(['Bug', self.bugzilla_id])
 
 
 class TaskProject(CachedModel, CreatedModifiedModel, CreatedByModel):
@@ -45,6 +94,15 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     team = models.ForeignKey(TaskTeam)
     type = models.ForeignKey(TaskType, blank=True, null=True)
 
+    # imported_item may be BugzillaBug for now. In future, other sources such
+    # as Moztrap may be possible
+    content_type = models.ForeignKey(ContentType, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    imported_item = generic.GenericForeignKey('content_type', 'object_id')
+
+    # batch that created this Task
+    batch = models.ForeignKey(TaskImportBatch, blank=True, null=True)
+
     EASY = 1
     INTERMEDIATE = 2
     ADVANCED = 3
@@ -56,7 +114,6 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
         ),
         default=EASY,
         verbose_name='task difficulty')
-    end_date = models.DateTimeField(blank=True, null=True)
     execution_time = models.IntegerField(
         choices=((i, i) for i in (15, 30, 45, 60)),
         blank=False,
@@ -65,11 +122,13 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     )
     instructions = models.TextField()
     is_draft = models.BooleanField(verbose_name='draft?')
+    is_valid = models.BooleanField(verbose_name='valid?', default=True)
     name = models.CharField(max_length=255, verbose_name='title')
     prerequisites = models.TextField(blank=True)
     repeatable = models.BooleanField(default=True)
     short_description = models.CharField(max_length=255, verbose_name='description')
     start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
     why_this_matters = models.TextField(blank=True)
 
     def _yield_html(self, field):
