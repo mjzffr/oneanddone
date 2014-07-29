@@ -130,6 +130,9 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     def get_edit_url(self):
         return reverse('tasks.edit', args=[self.id])
 
+    def get_clone_url(self):
+        return reverse('tasks.clone', args=[self.id])
+
     def __unicode__(self):
         return self.name
 

@@ -127,6 +127,7 @@
     {% if user.is_staff %}
       <div class="without-message">
           <a href="{{ task.get_edit_url() }}" class="button" id="edit-task">{{ _('Edit task') }}</a>
+          <a href="{{ task.get_clone_url() }}" class="button" id="clone-task">{{ _('Clone task') }}</a>
       </div>
     {% endif %}
   </div>

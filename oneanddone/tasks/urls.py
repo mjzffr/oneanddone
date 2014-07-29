@@ -17,6 +17,7 @@ urlpatterns = patterns('',
     url(r'^tasks/list/$', views.ListTasksView.as_view(), name='tasks.list'),
     url(r'^tasks/create/$', views.CreateTaskView.as_view(), name='tasks.create'),
     url(r'^tasks/edit/(?P<pk>\d+)/$', views.UpdateTaskView.as_view(), name='tasks.edit'),
+    url(r'^tasks/clone/(?P<clone>\d+)/$', views.CreateTaskView.as_view(), name='tasks.clone'),
 
     # API for interacting with tasks and task areas
     url(r'^api/v1/task/$', views.TaskListAPI.as_view(), name='api-task'),

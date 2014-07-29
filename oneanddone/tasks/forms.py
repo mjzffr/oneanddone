@@ -33,10 +33,11 @@ class TaskForm(forms.ModelForm):
         self._process_keywords(creator)
 
     def _process_keywords(self, creator):
-        if 'keywords' in self.changed_data:
+        form_keywords = self.cleaned_data['keywords'].split(',')
+        if 'keywords' in self.changed_data or self.instance.keyword_set.count() < len(form_keywords):
             for taskkeyword in self.instance.keyword_set.all():
                 taskkeyword.delete()
-            for keyword in self.cleaned_data['keywords'].split(','):
+            for keyword in form_keywords:
                 if len(keyword.strip()):
                     self.instance.keyword_set.create(name=keyword.strip(), creator=creator)
 

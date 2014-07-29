@@ -4,6 +4,7 @@
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
+from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import get_template
 from django.views import generic
@@ -177,6 +178,14 @@ class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Creat
     model = Task
     form_class = TaskForm
     template_name = 'tasks/form.html'
+
+    def get_initial(self):
+        if self.kwargs.get('clone'):
+            original_task = Task.objects.get(pk=self.kwargs['clone'])
+            self.initial.update(model_to_dict(original_task))
+            self.initial['keywords'] = original_task.keywords_list
+            self.initial['name'] = ' '.join([original_task.name, '(Copy)'])
+        return self.initial
 
     def get_context_data(self, *args, **kwargs):
         ctx = super(CreateTaskView, self).get_context_data(*args, **kwargs)
