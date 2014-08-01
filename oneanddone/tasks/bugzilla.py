@@ -20,13 +20,13 @@ def request_bugs(query, fields=['id','summary']):
     """ Returns list of bugs from Bugzilla@Mozilla, if any """
     params = {'include_fields' : ','.join(fields)}
     url = ''.join([_baseurl, '?', query])
-    return _get_json(url, params).get('bugs') or []
+    return _request_json(url, params).get('bugs') or []
 
 def request_bug(bug_id, fields=['id','summary']):
     """ Returns bug with id `bug_id` from Buzgilla@Mozilla, if any """
     params = {'include_fields' : ','.join(fields)}
     url = ''.join([_baseurl, '/', str(bug_id)])
-    bugs = _get_json(url, params).get('bugs')
+    bugs = _request_json(url, params).get('bugs')
     if bugs:
         return bugs[0]
     else:

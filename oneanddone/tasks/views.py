@@ -15,10 +15,10 @@ from tower import ugettext as _
 
 from oneanddone.base.util import get_object_or_none
 from oneanddone.tasks.filters import TasksFilterSet
-from oneanddone.tasks.forms import FeedbackForm, TaskForm
+from oneanddone.tasks.forms import FeedbackForm, TaskImportBatchForm, TaskInvalidCriteriaFormSet, TaskForm
 from oneanddone.tasks.mixins import APIRecordCreatorMixin, APIOnlyCreatorMayDeleteMixin
 from oneanddone.tasks.mixins import TaskMustBeAvailableMixin, HideNonRepeatableTaskMixin
-from oneanddone.tasks.models import Feedback, Task, TaskAttempt
+from oneanddone.tasks.models import Feedback, Task, TaskAttempt, TaskInvalidationCriterion
 from oneanddone.tasks.serializers import TaskSerializer
 from oneanddone.users.mixins import MyStaffUserRequiredMixin, PrivacyPolicyRequiredMixin
 
@@ -173,6 +173,71 @@ class ListTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, FilterView):
     filterset_class = TasksFilterSet
 
 
+# class TestMajaView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.TemplateView):
+#     template_name = 'tasks/majatest.html'
+
+#     def get_context_data(self, *args, **kwargs):
+#         ctx = super(TestMajaView, self).get_context_data(**kwargs)
+#         ctx['test'] = self.template_name
+#         ctx['action'] = 'Import'
+#         return ctx
+
+
+class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit.ProcessFormView, generic.TemplateView):
+    template_name = 'tasks/form.html'
+
+    def get_forms(self):
+        kwargs = {'initial': None}
+        if self.request.method in ('POST', 'PUT'):
+            kwargs.update({
+                'data': self.request.POST,
+                'files': self.request.FILES,
+            })
+        criterion_formset = TaskInvalidCriteriaFormSet(
+            queryset=TaskInvalidationCriterion.objects.none(), **kwargs)
+        batch_form = TaskImportBatchForm(instance=None, **kwargs)
+        task_form = TaskForm(instance=None, **kwargs)
+        return {'criterion_formset': criterion_formset,
+                'batch_form': batch_form,
+                'task_form': task_form}
+
+    def get_context_data(self, **kwargs):
+        # Won't have to do this as of Django 1.5
+        # https://docs.djangoproject.com/en/1.5/ref/class-based-views/mixins-simple/
+        ctx = kwargs
+        ctx['import_obj'] = 'task batch'
+        ctx['action'] = 'Import'
+        ctx['cancel_url'] = reverse('tasks.list')
+        return ctx
+
+    def forms_valid(self, forms):
+        bugs = forms['batch_form'].cleaned_data['bugs']
+        # get buglist from query
+        # if buglist is empty, add a message to the task_batch form and
+        # call forms_invalid
+        # otherwise, create a batch, create invalidation criteria and
+        # for each bug, create a task with its bugid in the name
+        #forms['task_form'].save(self.request.user)
+
+        #messages.success(self.request, _('Your task has been created.'))
+        return redirect('tasks.list')
+
+    def forms_invalid(self, forms):
+        return self.render_to_response(self.get_context_data(**forms))
+
+    def get(self, request, *args, **kwargs):
+        forms = self.get_forms()
+        return self.render_to_response(self.get_context_data(**forms))
+
+    def post(self, request, *args, **kwargs):
+        forms = self.get_forms()
+        if all([form.is_valid() for form in forms.values()]):
+            return self.forms_valid(forms)
+        else:
+            return self.forms_invalid(forms)
+
+
+
 class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.CreateView):
     model = Task
     form_class = TaskForm
@@ -180,8 +245,11 @@ class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Creat
 
     def get_context_data(self, *args, **kwargs):
         ctx = super(CreateTaskView, self).get_context_data(*args, **kwargs)
+        ctx['task_form'] = ctx['form']
+        del ctx['form']
         ctx['action'] = 'Add'
         ctx['cancel_url'] = reverse('tasks.list')
+        ctx['ctx'] = ctx
         return ctx
 
     def form_valid(self, form):
@@ -198,6 +266,8 @@ class UpdateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Updat
 
     def get_context_data(self, *args, **kwargs):
         ctx = super(UpdateTaskView, self).get_context_data(*args, **kwargs)
+        ctx['task_form'] = ctx['form']
+        del ctx['form']
         ctx['action'] = 'Update'
         ctx['cancel_url'] = reverse('tasks.detail', args=[self.get_object().id])
         return ctx

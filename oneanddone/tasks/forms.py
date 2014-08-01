@@ -2,11 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from django import forms
+#from django.forms.formsets import BaseFormSet, formset_factory
 
 from django_ace import AceWidget
 from tower import ugettext as _
 
-from oneanddone.tasks.models import Feedback, Task
+from oneanddone.tasks.bugzilla import request_bugs
+from oneanddone.tasks.models import Feedback, Task, TaskImportBatch, TaskInvalidationCriterion
 from oneanddone.tasks.widgets import CalendarInput, HorizRadioSelect
 
 
@@ -14,6 +16,59 @@ class FeedbackForm(forms.ModelForm):
     class Meta:
         model = Feedback
         fields = ('text',)
+
+
+class TaskInvalidationCriterionForm(forms.ModelForm):
+    def save(self, *args, **kwargs):
+        # TODO mzf is this needed?
+        # create all the tasks based on the query
+        super(TaskInvalidationCriterionForm, self).save(*args, **kwargs)
+
+    class Meta:
+        model = TaskInvalidationCriterion
+        fields = ('field_name', 'relation', 'field_value')
+        widgets = {
+            'field_name': forms.TextInput(attrs={'size': 15}),
+            'field_value': forms.TextInput(attrs={'size': 15})
+            }
+
+# class BaseInvalidCriteriaFormSet(BaseFormSet):
+#     def save(self):
+#         pass
+
+TaskInvalidCriteriaFormSet = forms.models.modelformset_factory(
+                                TaskInvalidationCriterion,
+                                form=TaskInvalidationCriterionForm)
+
+class TaskImportBatchForm(forms.ModelForm):
+    def save(self, creator, *args, **kwargs):
+        # TODO mzf is this needed?
+        # create all the tasks based on the query
+        self.instance.creator = creator
+        super(TaskImportBatchForm, self).save(*args, **kwargs)
+        self._process_criteria(creator)
+
+    def clean(self):
+        cleaned_data = super(TaskImportBatchForm, self).clean()
+        if cleaned_data.get('query','').count('?') != 1:
+            raise forms.ValidationError(_('Please provide a full URL as your query.'))
+        bugs = request_bugs(cleaned_data['query'].split('?')[1])
+        if not bugs:
+            raise forms.ValidationError(_('Your query does not return any results.'))
+        else:
+            cleaned_data['bugs'] = bugs
+        # TODO mzf raise error if too many bugs??
+        return cleaned_data
+
+    def _process_criteria(self, creator):
+        pass
+
+    class Meta:
+        model = TaskImportBatch
+        fields = ('query',)
+        widgets = {
+            'query': forms.TextInput(attrs={'size': 100}),
+            }
 
 
 class TaskForm(forms.ModelForm):
