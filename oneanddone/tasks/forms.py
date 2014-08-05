@@ -7,7 +7,7 @@ from django import forms
 from django_ace import AceWidget
 from tower import ugettext as _
 
-from oneanddone.tasks.bugzilla import request_bugs
+from oneanddone.tasks.bugzilla import request_bugcount
 from oneanddone.tasks.models import Feedback, Task, TaskImportBatch, TaskInvalidationCriterion
 from oneanddone.tasks.widgets import CalendarInput, HorizRadioSelect
 
@@ -19,10 +19,9 @@ class FeedbackForm(forms.ModelForm):
 
 
 class TaskInvalidationCriterionForm(forms.ModelForm):
-    def save(self, *args, **kwargs):
+    #def save(self, *args, **kwargs):
         # TODO mzf is this needed?
-        # create all the tasks based on the query
-        super(TaskInvalidationCriterionForm, self).save(*args, **kwargs)
+    #    return super(TaskInvalidationCriterionForm, self).save(*args, **kwargs)
 
     class Meta:
         model = TaskInvalidationCriterion
@@ -42,22 +41,22 @@ TaskInvalidCriteriaFormSet = forms.models.modelformset_factory(
 
 class TaskImportBatchForm(forms.ModelForm):
     def save(self, creator, *args, **kwargs):
-        # TODO mzf is this needed?
-        # create all the tasks based on the query
         self.instance.creator = creator
         super(TaskImportBatchForm, self).save(*args, **kwargs)
         self._process_criteria(creator)
+        return self.instance
 
     def clean(self):
+        max_size = 20
         cleaned_data = super(TaskImportBatchForm, self).clean()
         if cleaned_data.get('query','').count('?') != 1:
             raise forms.ValidationError(_('Please provide a full URL as your query.'))
-        bugs = request_bugs(cleaned_data['query'].split('?')[1])
-        if not bugs:
+        bugcount = request_bugcount(cleaned_data['query'].split('?')[1])
+        if not bugcount:
             raise forms.ValidationError(_('Your query does not return any results.'))
-        else:
-            cleaned_data['bugs'] = bugs
-        # TODO mzf raise error if too many bugs??
+        elif bugcount > max_size:
+            raise forms.ValidationError(_(' '.join(['Your query returns more than', str(max_size), 'items.'])))
+
         return cleaned_data
 
     def _process_criteria(self, creator):
@@ -65,7 +64,7 @@ class TaskImportBatchForm(forms.ModelForm):
 
     class Meta:
         model = TaskImportBatch
-        fields = ('query',)
+        fields = ('description', 'query')
         widgets = {
             'query': forms.TextInput(attrs={'size': 100}),
             }
@@ -86,6 +85,7 @@ class TaskForm(forms.ModelForm):
         self.instance.creator = creator
         super(TaskForm, self).save(*args, **kwargs)
         self._process_keywords(creator)
+        return self.instance
 
     def _process_keywords(self, creator):
         if 'keywords' in self.changed_data:

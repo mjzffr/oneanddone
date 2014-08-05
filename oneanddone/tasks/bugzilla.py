@@ -8,7 +8,7 @@ def _request_json(url, params):
     try:
         r = requests.get(url, headers=headers, params=params)
         data = r.json()
-        if r.status_code != 200 or data.get('error'):
+        if not r.ok or data.get('error'):
             data = {}
             # TODO mzf log the error somewhere?
         return data
@@ -21,6 +21,11 @@ def request_bugs(query, fields=['id','summary']):
     params = {'include_fields' : ','.join(fields)}
     url = ''.join([_baseurl, '?', query])
     return _request_json(url, params).get('bugs') or []
+
+def request_bugcount(query):
+    response = _request_json(''.join([_baseurl, '?', query]), {'count_only':1})
+    bug_count = response.get('bug_count')
+    return int(bug_count) if bug_count else bug_count
 
 def request_bug(bug_id, fields=['id','summary']):
     """ Returns bug with id `bug_id` from Buzgilla@Mozilla, if any """

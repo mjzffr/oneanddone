@@ -33,8 +33,8 @@ class TaskInvalidationCriterion(models.Model):
 
 
 class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
-    name = models.CharField(max_length=255)
-    query = models.CharField(max_length=255)
+    description = models.CharField(max_length=255)
+    query = models.TextField()
     # other sources might be Moztrap, etc.
     BUGZILLA = 0
     OTHER = 1
@@ -44,7 +44,7 @@ class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
             (OTHER, 'Other')
         ),
         default=BUGZILLA)
-    # (?) JSON-encoded results from the batch creation form
+    # JSON-encoded results from the task import form
     template_task_data = models.TextField()
 
     def __unicode__(self):

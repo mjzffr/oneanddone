@@ -14,11 +14,12 @@ from rest_framework import generics
 from tower import ugettext as _
 
 from oneanddone.base.util import get_object_or_none
+from oneanddone.tasks.bugzilla import request_bugs
 from oneanddone.tasks.filters import TasksFilterSet
 from oneanddone.tasks.forms import FeedbackForm, TaskImportBatchForm, TaskInvalidCriteriaFormSet, TaskForm
 from oneanddone.tasks.mixins import APIRecordCreatorMixin, APIOnlyCreatorMayDeleteMixin
 from oneanddone.tasks.mixins import TaskMustBeAvailableMixin, HideNonRepeatableTaskMixin
-from oneanddone.tasks.models import Feedback, Task, TaskAttempt, TaskInvalidationCriterion
+from oneanddone.tasks.models import BugzillaBug, Feedback, Task, TaskAttempt, TaskInvalidationCriterion
 from oneanddone.tasks.serializers import TaskSerializer
 from oneanddone.users.mixins import MyStaffUserRequiredMixin, PrivacyPolicyRequiredMixin
 
@@ -211,15 +212,25 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit
         return ctx
 
     def forms_valid(self, forms):
-        bugs = forms['batch_form'].cleaned_data['bugs']
-        # get buglist from query
-        # if buglist is empty, add a message to the task_batch form and
-        # call forms_invalid
-        # otherwise, create a batch, create invalidation criteria and
-        # for each bug, create a task with its bugid in the name
-        #forms['task_form'].save(self.request.user)
+        bugs = request_bugs(forms['batch_form'].cleaned_data['query'].split('?')[1])
+        import_batch = forms['batch_form'].save(self.request.user)
+        criterion_objs = forms['criterion_formset'].save(commit=False)
+        for criterion in criterion_objs:
+            criterion.batch = import_batch
+            criterion.save()
+        task = forms['task_form'].save(self.request.user, commit=False)
+        task.batch = import_batch
+        basename = task.name
+        for bug in bugs:
+            bug_obj, _created = BugzillaBug.objects.get_or_create(bugzilla_id=bug['id'])
+            bug_obj.summary = bug['summary']
+            bug_obj.save()
+            task.pk = None
+            task.name = ' '.join([basename, 'Bug', str(bug['id'])])
+            task.imported_item = bug_obj
+            task.save()
 
-        #messages.success(self.request, _('Your task has been created.'))
+        messages.success(self.request, _(' '.join([str(len(bugs)), 'tasks created.'])))
         return redirect('tasks.list')
 
     def forms_invalid(self, forms):

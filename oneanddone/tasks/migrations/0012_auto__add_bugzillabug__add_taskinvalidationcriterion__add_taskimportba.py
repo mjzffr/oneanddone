@@ -32,8 +32,8 @@ class Migration(SchemaMigration):
             ('created', self.gf('django.db.models.fields.DateTimeField')(auto_now_add=True, blank=True)),
             ('modified', self.gf('django.db.models.fields.DateTimeField')(auto_now=True, blank=True)),
             ('creator', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['auth.User'], null=True, blank=True)),
-            ('name', self.gf('django.db.models.fields.CharField')(max_length=255)),
-            ('query', self.gf('django.db.models.fields.CharField')(max_length=255)),
+            ('description', self.gf('django.db.models.fields.CharField')(max_length=255)),
+            ('query', self.gf('django.db.models.fields.TextField')()),
             ('source', self.gf('django.db.models.fields.IntegerField')(default=0)),
             ('template_task_data', self.gf('django.db.models.fields.TextField')()),
         ))
@@ -208,10 +208,10 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'TaskImportBatch'},
             'created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
             'creator': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['auth.User']", 'null': 'True', 'blank': 'True'}),
+            'description': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'modified': ('django.db.models.fields.DateTimeField', [], {'auto_now': 'True', 'blank': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
-            'query': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'query': ('django.db.models.fields.TextField', [], {}),
             'source': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'template_task_data': ('django.db.models.fields.TextField', [], {})
         },
