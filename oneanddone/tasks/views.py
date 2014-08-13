@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from django.contrib import messages
+from django.contrib.formtools.utils import form_hmac
 from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404, redirect
@@ -239,13 +240,21 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
         ctx['cancel_url'] = reverse('tasks.list')
         return ctx
 
-    # TODO: test creation of batches/tasks again then work on the preview
-
     def forms_valid(self, forms):
         if self.stage == 'confirm':
-            return self.done(forms)
+            if self._check_security_hash(self.request.POST.get('hashes'), forms):
+                return self.done(forms)
+            else:
+                return self.failed_hash(request)
         else:
-            return self.render_to_response(self.get_context_data(**forms))
+            ctx = forms
+            if self.stage == 'preview':
+                ctx['hashes'] = self.security_hashes(forms)
+                bugs = request_bugs(forms['batch_form'].cleaned_data['query'].split('?')[1])
+                basename = forms['task_form'].cleaned_data['name']
+                ctx['task_names'] = [' '.join([basename, 'Bug', str(bug['id'])]) for bug in bugs]
+                ctx['num_tasks'] = len(bugs)
+            return self.render_to_response(self.get_context_data(**ctx))
 
     def forms_invalid(self, forms):
         return self.render_to_response(self.get_context_data(**forms))
@@ -286,6 +295,22 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
         messages.success(self.request, _(' '.join([str(len(bugs)), 'tasks created.'])))
         return redirect('tasks.list')
 
+    def security_hashes(self, forms):
+        all_forms = [forms['batch_form'], forms['task_form']] + forms['criterion_formset'].forms
+        return [form_hmac(form) for form in all_forms]
+
+    def failed_hash(self, request):
+        "Returns an HttpResponse in the case of an invalid security hash."
+        self.stage = 'preview'
+        return self.post(request)
+
+    def _check_security_hash(self, tokens, forms):
+        expected = self.security_hashes(forms)
+        #none
+        if len(tokens) != len(expected):
+            return False
+        else:
+            return all([constant_time_compare(t, e) in zip(tokens, expected)])
 
 class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.CreateView):
     model = Task

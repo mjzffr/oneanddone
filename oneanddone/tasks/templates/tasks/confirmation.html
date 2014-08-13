@@ -12,14 +12,14 @@
 <main class="billboard content-container">
   <h1>{{ title }}</h1>
   <div class="billboard content-container">
-    <p> {{ _('You are about to import the {num} tasks listed below. Do you wish to continue?')|f(num=num) }}</p>
+    <p> {{ _('You are about to import the {num} tasks listed below. Do you wish to continue?')|f(num=num_tasks) }}</p>
     <div class="actions-container">
       {# <a href="{{ url('tasks.import') }}" id="cancel-import" class="button">{{ _('No, cancel import') }}</a> #}
       <form method="post">
         {{ csrf() }}
         {{ hiddenform([batch_form, task_form], [criterion_formset]) }}
         <input type="hidden" name="stage" value="initial" />
-        <input type="hidden" name="hash" value="{{ hash_value }}" />
+        <input type="hidden" name="hashes" value="{{ hashes }}" />
         <button type="submit" class="button">{{ _('No, cancel import') }}</button>
       </form>
 
@@ -35,8 +35,11 @@
 
   <section class="task list">
     <h2>{{ _('Tasks to Import') }}</h2>
-    One Task<br>
-    Another Task
+    <ul>
+    {% for name in task_names %}
+      <li>{{ name }}</li>
+    {% endfor %}
+    </ul>
 
   </section>
 
