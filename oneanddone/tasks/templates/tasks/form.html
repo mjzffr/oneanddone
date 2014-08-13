@@ -20,6 +20,7 @@
 
 {% block content %}
 <main class="billboard content-container feedback">
+
   <h4>{{ title }}</h4>
 
   {{ task_form.non_field_errors() }}
@@ -28,15 +29,15 @@
     {{ csrf() }}
 
     {% if import_obj %}
-      <div class="row">
+      <input type="hidden" name="stage" value="preview" />
       {{ batch_form }}
-      </div>
-      <div class="row">
-        {{ criterion_formset.management_form }}
-         {% for criterion_form in criterion_formset %}
+
+      {{ criterion_formset.management_form }}
+      {% for criterion_form in criterion_formset %}
+        <div class="row">
           {{ criterion_form}}
-         {% endfor %}
-      </div>
+        </div>
+      {% endfor %}
     {% endif %}
 
     <div class="row">

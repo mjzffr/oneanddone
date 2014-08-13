@@ -47,6 +47,7 @@ class TaskImportBatchForm(forms.ModelForm):
         return self.instance
 
     def clean(self):
+        # TODO mzf: see limit and offset parameters to get first 100 "fresh" bugs (based on query and bug number)
         max_size = 20
         cleaned_data = super(TaskImportBatchForm, self).clean()
         if cleaned_data.get('query','').count('?') != 1:

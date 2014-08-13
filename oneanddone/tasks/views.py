@@ -183,9 +183,35 @@ class ListTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, FilterView):
 #         ctx['action'] = 'Import'
 #         return ctx
 
+# class ConfirmImportView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit.ProcessFormView, generic.TemplateView):
+#     template_name = 'tasks/confirmation.html'
 
-class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit.ProcessFormView, generic.TemplateView):
-    template_name = 'tasks/form.html'
+#     def get_context_data(self, **kwargs):
+#         ctx = kwargs
+#         ctx['num'] = 2
+#         ctx['action'] = 'Import'
+#         ctx['cancel_url'] = reverse('tasks.list')
+#         return ctx
+
+#     def get(self, request, *args, **kwargs):
+#         return self.render_to_response(self.get_context_data(**kwargs))
+
+#     def post(self, request, *args, **kwargs):
+#         pass
+
+class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.TemplateView):
+
+    def get_template_names(self):
+        # After initial form submission
+        if self.stage == 'preview':
+            return ['tasks/confirmation.html']
+        else:
+        # Initial form load, or after cancelling in response to form preview
+            return ['tasks/form.html']
+
+    def dispatch(self, request, *args, **kwargs):
+        self.stage = request.POST.get('stage')
+        return super(ImportTasksView, self).dispatch(request, *args, **kwargs)
 
     def get_forms(self):
         kwargs = {'initial': None}
@@ -195,9 +221,11 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit
                 'files': self.request.FILES,
             })
         criterion_formset = TaskInvalidCriteriaFormSet(
-            queryset=TaskInvalidationCriterion.objects.none(), **kwargs)
-        batch_form = TaskImportBatchForm(instance=None, **kwargs)
-        task_form = TaskForm(instance=None, **kwargs)
+            queryset=TaskInvalidationCriterion.objects.none(),
+            prefix='criteria', **kwargs)
+        batch_form = TaskImportBatchForm(instance=None,
+                                         prefix='batch', **kwargs)
+        task_form = TaskForm(instance=None, prefix='task', **kwargs)
         return {'criterion_formset': criterion_formset,
                 'batch_form': batch_form,
                 'task_form': task_form}
@@ -211,7 +239,32 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit
         ctx['cancel_url'] = reverse('tasks.list')
         return ctx
 
+    # TODO: test creation of batches/tasks again then work on the preview
+
     def forms_valid(self, forms):
+        if self.stage == 'confirm':
+            return self.done(forms)
+        else:
+            return self.render_to_response(self.get_context_data(**forms))
+
+    def forms_invalid(self, forms):
+        return self.render_to_response(self.get_context_data(**forms))
+
+    def get(self, request, *args, **kwargs):
+        forms = self.get_forms()
+        return self.render_to_response(self.get_context_data(**forms))
+
+    def post(self, request, *args, **kwargs):
+        forms = self.get_forms()
+        if all([form.is_valid() for form in forms.values()]):
+            return self.forms_valid(forms)
+        else:
+            return self.forms_invalid(forms)
+
+    def put(self, *args, **kwargs):
+        return self.post(*args, **kwargs)
+
+    def done(self, forms):
         bugs = request_bugs(forms['batch_form'].cleaned_data['query'].split('?')[1])
         import_batch = forms['batch_form'].save(self.request.user)
         criterion_objs = forms['criterion_formset'].save(commit=False)
@@ -233,21 +286,6 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit
         messages.success(self.request, _(' '.join([str(len(bugs)), 'tasks created.'])))
         return redirect('tasks.list')
 
-    def forms_invalid(self, forms):
-        return self.render_to_response(self.get_context_data(**forms))
-
-    def get(self, request, *args, **kwargs):
-        forms = self.get_forms()
-        return self.render_to_response(self.get_context_data(**forms))
-
-    def post(self, request, *args, **kwargs):
-        forms = self.get_forms()
-        if all([form.is_valid() for form in forms.values()]):
-            return self.forms_valid(forms)
-        else:
-            return self.forms_invalid(forms)
-
-
 
 class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.CreateView):
     model = Task
@@ -256,8 +294,8 @@ class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Creat
 
     def get_context_data(self, *args, **kwargs):
         ctx = super(CreateTaskView, self).get_context_data(*args, **kwargs)
-        ctx['task_form'] = ctx['form']
-        del ctx['form']
+        ctx['task_form'] = ctx.get('form')
+        #del ctx['form']
         ctx['action'] = 'Add'
         ctx['cancel_url'] = reverse('tasks.list')
         ctx['ctx'] = ctx
@@ -269,6 +307,7 @@ class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Creat
         messages.success(self.request, _('Your task has been created.'))
         return redirect('tasks.list')
 
+# TODO mzf review/fix/add tests
 
 class UpdateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.UpdateView):
     model = Task
@@ -277,8 +316,8 @@ class UpdateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Updat
 
     def get_context_data(self, *args, **kwargs):
         ctx = super(UpdateTaskView, self).get_context_data(*args, **kwargs)
-        ctx['task_form'] = ctx['form']
-        del ctx['form']
+        ctx['task_form'] = ctx.get('form')
+        #del ctx['form']
         ctx['action'] = 'Update'
         ctx['cancel_url'] = reverse('tasks.detail', args=[self.get_object().id])
         return ctx
