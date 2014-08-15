@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from django.contrib import messages
-from django.contrib.formtools.utils import form_hmac
 from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404, redirect
@@ -10,6 +9,7 @@ from django.template.loader import get_template
 from django.views import generic
 
 from braces.views import LoginRequiredMixin
+from datetime import date, timedelta
 from django_filters.views import FilterView
 from rest_framework import generics
 from tower import ugettext as _
@@ -175,58 +175,39 @@ class ListTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, FilterView):
     filterset_class = TasksFilterSet
 
 
-# class TestMajaView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.TemplateView):
-#     template_name = 'tasks/majatest.html'
+import logging
+log = logging.getLogger('playdoh')
 
-#     def get_context_data(self, *args, **kwargs):
-#         ctx = super(TestMajaView, self).get_context_data(**kwargs)
-#         ctx['test'] = self.template_name
-#         ctx['action'] = 'Import'
-#         return ctx
-
-# class ConfirmImportView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.edit.ProcessFormView, generic.TemplateView):
-#     template_name = 'tasks/confirmation.html'
-
-#     def get_context_data(self, **kwargs):
-#         ctx = kwargs
-#         ctx['num'] = 2
-#         ctx['action'] = 'Import'
-#         ctx['cancel_url'] = reverse('tasks.list')
-#         return ctx
-
-#     def get(self, request, *args, **kwargs):
-#         return self.render_to_response(self.get_context_data(**kwargs))
-
-#     def post(self, request, *args, **kwargs):
-#         pass
 
 class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.TemplateView):
 
     def get_template_names(self):
-        # After initial form submission
+        log.debug('Session %r' % self.request.session.get('task_import_data'))
+        log.debug('Bugs %r' % self.request.session.get('bugs'))
+        log.debug('Stage %r' % self.stage)
         if self.stage == 'preview':
+            # After initial form submission
             return ['tasks/confirmation.html']
         else:
-        # Initial form load, or after cancelling in response to form preview
+            # Initial form load, error or after cancelling from confirmation
             return ['tasks/form.html']
 
-    def dispatch(self, request, *args, **kwargs):
-        self.stage = request.POST.get('stage')
-        return super(ImportTasksView, self).dispatch(request, *args, **kwargs)
-
-    def get_forms(self):
+    def get_forms(self, session=False):
         kwargs = {'initial': None}
-        if self.request.method in ('POST', 'PUT'):
-            kwargs.update({
-                'data': self.request.POST,
-                'files': self.request.FILES,
-            })
-        criterion_formset = TaskInvalidCriteriaFormSet(
-            queryset=TaskInvalidationCriterion.objects.none(),
-            prefix='criteria', **kwargs)
+        if session:
+            kwargs['data'] = self.request.session['task_import_data']
+        elif self.request.method in ('POST', 'PUT'):
+            kwargs['data'] = self.request.POST
+
         batch_form = TaskImportBatchForm(instance=None,
                                          prefix='batch', **kwargs)
+        criterion_formset = TaskInvalidCriteriaFormSet(
+            queryset=TaskInvalidationCriterion.objects.none(),
+            prefix='criteria',
+            **kwargs)
+        kwargs['initial'] = {'end_date' : date.today() + timedelta(days=90)}
         task_form = TaskForm(instance=None, prefix='task', **kwargs)
+
         return {'criterion_formset': criterion_formset,
                 'batch_form': batch_form,
                 'task_form': task_form}
@@ -235,36 +216,45 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
         # Won't have to do this as of Django 1.5
         # https://docs.djangoproject.com/en/1.5/ref/class-based-views/mixins-simple/
         ctx = kwargs
-        ctx['import_obj'] = 'task batch'
         ctx['action'] = 'Import'
         ctx['cancel_url'] = reverse('tasks.list')
         return ctx
 
     def forms_valid(self, forms):
         if self.stage == 'confirm':
-            if self._check_security_hash(self.request.POST.get('hashes'), forms):
-                return self.done(forms)
-            else:
-                return self.failed_hash(request)
+            return self.done(forms, self.request.session['task_import_bugs'])
         else:
+            assert self.stage == 'preview'
+            self.request.session['task_import_data'] = self.request.POST
+            self.request.session['task_import_bugs'] = bugs = self._get_bugs(forms['batch_form'])
             ctx = forms
-            if self.stage == 'preview':
-                ctx['hashes'] = self.security_hashes(forms)
-                bugs = request_bugs(forms['batch_form'].cleaned_data['query'].split('?')[1])
-                basename = forms['task_form'].cleaned_data['name']
-                ctx['task_names'] = [' '.join([basename, 'Bug', str(bug['id'])]) for bug in bugs]
-                ctx['num_tasks'] = len(bugs)
+            ctx['basename'] = forms['task_form'].cleaned_data['name']
+            ctx['bug_ids'] = [bug['id'] for bug in bugs]
+            ctx['num_tasks'] = len(bugs)
+            ctx['bugzilla_url'] = 'https://bugzilla.mozilla.org/show_bug.cgi?id='
             return self.render_to_response(self.get_context_data(**ctx))
 
     def forms_invalid(self, forms):
+        self.stage = 'error'
         return self.render_to_response(self.get_context_data(**forms))
 
     def get(self, request, *args, **kwargs):
+        # Assume this is a fresh start to the import process
+        self.stage = None
+        self._reset_session()
         forms = self.get_forms()
         return self.render_to_response(self.get_context_data(**forms))
 
     def post(self, request, *args, **kwargs):
-        forms = self.get_forms()
+        stage = self._update_stage()
+        if stage == 'initial':
+            forms = self.get_forms(session=True)
+            return self.render_to_response(self.get_context_data(**forms))
+        elif stage == 'preview':
+            forms = self.get_forms()
+        elif stage == 'confirm':
+            forms = self.get_forms(session=True)
+
         if all([form.is_valid() for form in forms.values()]):
             return self.forms_valid(forms)
         else:
@@ -273,14 +263,17 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
     def put(self, *args, **kwargs):
         return self.post(*args, **kwargs)
 
-    def done(self, forms):
-        bugs = request_bugs(forms['batch_form'].cleaned_data['query'].split('?')[1])
+    def done(self, forms, bugs):
+        self._reset_session()
+
         import_batch = forms['batch_form'].save(self.request.user)
         criterion_objs = forms['criterion_formset'].save(commit=False)
         for criterion in criterion_objs:
             criterion.batch = import_batch
             criterion.save()
+
         task = forms['task_form'].save(self.request.user, commit=False)
+        keywords = [k.strip() for k in forms['task_form'].cleaned_data['keywords'].split(',')]
         task.batch = import_batch
         basename = task.name
         for bug in bugs:
@@ -291,26 +284,24 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
             task.name = ' '.join([basename, 'Bug', str(bug['id'])])
             task.imported_item = bug_obj
             task.save()
+            task.replace_keywords(keywords, self.request.user)
 
         messages.success(self.request, _(' '.join([str(len(bugs)), 'tasks created.'])))
         return redirect('tasks.list')
 
-    def security_hashes(self, forms):
-        all_forms = [forms['batch_form'], forms['task_form']] + forms['criterion_formset'].forms
-        return [form_hmac(form) for form in all_forms]
+    def _update_stage(self):
+        self.stage = self.request.POST.get('stage')
+        if self.stage not in ['initial', 'preview', 'confirm']:
+            raise ValidationError(_('Form data is missing or has been tampered.'))
+        return self.stage
 
-    def failed_hash(self, request):
-        "Returns an HttpResponse in the case of an invalid security hash."
-        self.stage = 'preview'
-        return self.post(request)
+    def _get_bugs(self, batch_form):
+        return request_bugs(batch_form.cleaned_data['query'].split('?')[1])
 
-    def _check_security_hash(self, tokens, forms):
-        expected = self.security_hashes(forms)
-        #none
-        if len(tokens) != len(expected):
-            return False
-        else:
-            return all([constant_time_compare(t, e) in zip(tokens, expected)])
+    def _reset_session(self):
+        for name in ['task_import_data', 'task_import_bugs']:
+            if self.request.session.get(name):
+                del self.request.session[name]
 
 class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.CreateView):
     model = Task

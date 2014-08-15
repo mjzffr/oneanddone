@@ -15,29 +15,49 @@
 {% endblock %}
 
 {% from 'tasks/macros.html' import form_field %}
-
-{% set title = _('{action} {import_obj} {task_name}')|f(action=action, import_obj=import_obj or 'task', task_name=task_form['name'].value() or '') %}
+{% if action == 'Import' %}
+  {% set title = _('{action} task batch')|f(action=action) %}
+{% else %}
+  {% set title = _('{action} task {task_name}')|f(action=action,task_name=task_form['name'].value() or '') %}
+{% endif %}
 
 {% block content %}
 <main class="billboard content-container feedback">
 
+{% if action == 'Add' %}
+  <div style="float:right">
+    <a href="{{ url('tasks.import') }}" class="button" id="cancel">{{ _('Import Tasks') }}</a>
+  </div>
+{% endif %}
+
   <h4>{{ title }}</h4>
 
+{% if action == 'Import' %}
+  {{ batch_form.non_field_errors() }}
+  {{ criterion_formset.non_form_errors() }}
+{% endif %}
   {{ task_form.non_field_errors() }}
 
   <form method="post" class="task-form">
     {{ csrf() }}
 
-    {% if import_obj %}
+    {% if action == 'Import' %}
       <input type="hidden" name="stage" value="preview" />
-      {{ batch_form }}
-
-      {{ criterion_formset.management_form }}
-      {% for criterion_form in criterion_formset %}
-        <div class="row">
-          {{ criterion_form}}
+      <div class="row">
+        <div "one-field">{{ form_field(batch_form['description'], True) }}</div>
+      </div>
+      <div class="row">
+        <div "one-field">{{ form_field(batch_form['query'], True) }}</div>
+      </div>
+      <div class="billboard content-container">
+        {{ criterion_formset.management_form }}
+        {% for criterion_form in criterion_formset %}
+          <div class="row">
+            {{ criterion_form }}
+          </div>
+        {% endfor %}
         </div>
-      {% endfor %}
+      <h5>{{ _('Base Task Description') }}</h5>
     {% endif %}
 
     <div class="row">

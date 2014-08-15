@@ -33,8 +33,9 @@ class TaskInvalidationCriterion(models.Model):
 
 
 class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
-    description = models.CharField(max_length=255)
-    query = models.TextField()
+    description = models.CharField(max_length=255,
+                                   verbose_name='batch summary')
+    query = models.TextField(verbose_name='query URL')
     # other sources might be Moztrap, etc.
     BUGZILLA = 0
     OTHER = 1
@@ -145,6 +146,13 @@ class Task(CachedModel, CreatedModifiedModel, CreatedByModel):
     @property
     def keywords_list(self):
         return ', '.join([keyword.name for keyword in self.keyword_set.all()])
+
+    def replace_keywords(self, keywords, creator):
+        for keyword in self.keyword_set.all():
+            keyword.delete()
+        for keyword in keywords:
+            if len(keyword):
+                self.keyword_set.create(name=keyword, creator=creator)
 
     @property
     def is_available(self):

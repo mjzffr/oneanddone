@@ -19,9 +19,12 @@ class FeedbackForm(forms.ModelForm):
 
 
 class TaskInvalidationCriterionForm(forms.ModelForm):
-    #def save(self, *args, **kwargs):
-        # TODO mzf is this needed?
-    #    return super(TaskInvalidationCriterionForm, self).save(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        initial = kwargs.get('initial', {})
+        initial['relation'] = TaskInvalidationCriterion.EQUAL
+        kwargs['initial'] = initial
+        super(TaskInvalidationCriterionForm, self).__init__(*args, **kwargs)
+
 
     class Meta:
         model = TaskInvalidationCriterion
@@ -29,6 +32,7 @@ class TaskInvalidationCriterionForm(forms.ModelForm):
         widgets = {
             'field_name': forms.TextInput(attrs={'size': 15}),
             'field_value': forms.TextInput(attrs={'size': 15})
+           # 'relation': forms.Select(attrs={'initial':TaskInvalidationCriterion.EQUAL})
             }
 
 # class BaseInvalidCriteriaFormSet(BaseFormSet):
@@ -68,8 +72,11 @@ class TaskImportBatchForm(forms.ModelForm):
         fields = ('description', 'query')
         widgets = {
             'query': forms.TextInput(attrs={'size': 100}),
+            'description': forms.TextInput(attrs={'size': 100})
             }
 
+import logging
+log = logging.getLogger('playdoh')
 
 class TaskForm(forms.ModelForm):
     keywords = forms.CharField(required=False, widget=forms.TextInput(attrs={'size': 50}))
@@ -85,16 +92,15 @@ class TaskForm(forms.ModelForm):
     def save(self, creator, *args, **kwargs):
         self.instance.creator = creator
         super(TaskForm, self).save(*args, **kwargs)
-        self._process_keywords(creator)
+        log.debug('kwargs %r', kwargs)
+        if kwargs.get('commit', True):
+            self._process_keywords(creator)
         return self.instance
 
     def _process_keywords(self, creator):
         if 'keywords' in self.changed_data:
-            for taskkeyword in self.instance.keyword_set.all():
-                taskkeyword.delete()
-            for keyword in self.cleaned_data['keywords'].split(','):
-                if len(keyword.strip()):
-                    self.instance.keyword_set.create(name=keyword.strip(), creator=creator)
+            kw = [k.strip() for k in self.cleaned_data['keywords'].split(',')]
+            self.instance.replace_keywords(kw, creator)
 
     def clean(self):
         cleaned_data = super(TaskForm, self).clean()

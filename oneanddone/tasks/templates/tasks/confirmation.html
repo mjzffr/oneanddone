@@ -17,17 +17,13 @@
       {# <a href="{{ url('tasks.import') }}" id="cancel-import" class="button">{{ _('No, cancel import') }}</a> #}
       <form method="post">
         {{ csrf() }}
-        {{ hiddenform([batch_form, task_form], [criterion_formset]) }}
         <input type="hidden" name="stage" value="initial" />
-        <input type="hidden" name="hashes" value="{{ hashes }}" />
         <button type="submit" class="button">{{ _('No, cancel import') }}</button>
       </form>
 
       <form method="post">
         {{ csrf() }}
-        {{ hiddenform([batch_form, task_form], [criterion_formset]) }}
         <input type="hidden" name="stage" value="confirm" />
-        <input type="hidden" name="hash" value="{{ hash_value }}" />
         <button type="submit" class="button">{{ _('Yes, import tasks') }}</button>
       </form>
     </div>
@@ -36,8 +32,8 @@
   <section class="task list">
     <h2>{{ _('Tasks to Import') }}</h2>
     <ul>
-    {% for name in task_names %}
-      <li>{{ name }}</li>
+    {% for bug_id in bug_ids %}
+      <li>{{ basename }} <a href="{{ bugzilla_url }}{{ bug_id }}">Bug {{ bug_id }}</a> </li>
     {% endfor %}
     </ul>
 
