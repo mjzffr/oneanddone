@@ -7,8 +7,8 @@ from django import forms
 from django_ace import AceWidget
 from tower import ugettext as _
 
-from oneanddone.tasks.bugzilla import request_bugcount
-from oneanddone.tasks.models import Feedback, Task, TaskImportBatch, TaskInvalidationCriterion
+from oneanddone.tasks.bugzilla import request_bugcount, request_bugs
+from oneanddone.tasks.models import BugzillaBug, Feedback, Task, TaskImportBatch, TaskInvalidationCriterion
 from oneanddone.tasks.widgets import CalendarInput, HorizRadioSelect
 
 
@@ -47,25 +47,52 @@ class TaskImportBatchForm(forms.ModelForm):
     def save(self, creator, *args, **kwargs):
         self.instance.creator = creator
         super(TaskImportBatchForm, self).save(*args, **kwargs)
-        self._process_criteria(creator)
         return self.instance
 
     def clean(self):
         # TODO mzf: see limit and offset parameters to get first 100 "fresh" bugs (based on query and bug number)
-        max_size = 20
+        max_results = 100
+        max_batch_size = 20
         cleaned_data = super(TaskImportBatchForm, self).clean()
-        if cleaned_data.get('query','').count('?') != 1:
+        query = cleaned_data.get('query','')
+        if query.count('?') != 1:
             raise forms.ValidationError(_('Please provide a full URL as your query.'))
-        bugcount = request_bugcount(cleaned_data['query'].split('?')[1])
+        bugcount = request_bugcount(query.split('?')[1])
         if not bugcount:
             raise forms.ValidationError(_('Your query does not return any results.'))
-        elif bugcount > max_size:
-            raise forms.ValidationError(_(' '.join(['Your query returns more than', str(max_size), 'items.'])))
+        elif bugcount > max_results:
+            raise forms.ValidationError(_(' '.join(['Your query returns more than', str(max_results), 'items.'])))
+
+        fresh_bugs = self._get_fresh_bugs(query, bugcount, max_batch_size)
+
+        if not fresh_bugs:
+            raise forms.ValidationError(_('The results of this query have all been imported before. To import these results again as different tasks, please use a different query.'))
+
+        cleaned_data['_fresh_bugs'] = fresh_bugs
 
         return cleaned_data
 
-    def _process_criteria(self, creator):
-        pass
+    @staticmethod
+    def _get_fresh_bugs(query, max_results, max_batch_size):
+        ''' Returns at most first `limit` bugs (ordered by bug id) that have not already been imported via `query`.
+        '''
+        existing_bug_ids = set([bug.bugzilla_id for bug in BugzillaBug.objects.filter(tasks__batch__query__exact=query)])
+
+        def fetch(query, limit, offset):
+            new_bugs = request_bugs(query.split('?')[1], limit=limit, offset=offset)
+            fresh_bug_ids = set([bug['id'] for bug in new_bugs]) - existing_bug_ids
+            if not fresh_bug_ids:
+                return []
+            else:
+                return [bug for bug in new_bugs if bug['id'] in fresh_bug_ids]
+
+        fresh_bugs = []
+        for offset in range(0, max_results, max_batch_size):
+            fresh_bugs.extend(fetch(query, max_batch_size, offset))
+            if len(fresh_bugs) >= max_batch_size:
+                return fresh_bugs[:20]
+        return fresh_bugs
+
 
     class Meta:
         model = TaskImportBatch

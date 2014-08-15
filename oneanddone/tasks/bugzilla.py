@@ -2,20 +2,6 @@ import requests
 
 _baseurl = 'https://bugzilla.mozilla.org/rest/bug'
 
-# 3063 =item C<limit>
-# 3064
-# 3065 C<int> Limit the number of results returned to C<int> records. If the limit
-# 3066 is more than zero and higher than the maximum limit set by the administrator,
-# 3067 then the maximum limit will be used instead. If you set the limit equal to zero,
-# 3068 then all matching results will be returned instead.
-# 3069
-# 3070 =item C<offset>
-# 3071
-# 3072 C<int> Used in conjunction with the C<limit> argument, C<offset> defines
-# 3073 the starting position for the search. For example, given a search that
-# 3074 would return 100 bugs, setting C<limit> to 10 and C<offset> to 10 would return
-# 3075 bugs 11 through 20 from the set of 100.
-
 def _request_json(url, params):
     """ Returns the json-encoded response from Bugzilla@Mozilla, if any """
     headers = {'content-type':'application/json', 'accept':'application/json'}
@@ -30,9 +16,9 @@ def _request_json(url, params):
         # TODO mzf log the exception somewhere?
         return {}
 
-def request_bugs(query, fields=['id','summary']):
-    """ Returns list of bugs from Bugzilla@Mozilla, if any """
-    params = {'include_fields' : ','.join(fields)}
+def request_bugs(query, fields=['id','summary'], offset=0, limit=99):
+    """ Returns list of at most first `limit` bugs (starting at `offset`) from Bugzilla@Mozilla, if any. The bugs are ordered by bug id."""
+    params = {'include_fields' : ','.join(fields), 'offset':offset, 'limit':limit}
     url = ''.join([_baseurl, '?', query])
     return _request_json(url, params).get('bugs') or []
 

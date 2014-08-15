@@ -26,7 +26,7 @@
 
 {% if action == 'Add' %}
   <div style="float:right">
-    <a href="{{ url('tasks.import') }}" class="button" id="cancel">{{ _('Import Tasks') }}</a>
+    <a href="{{ url('tasks.import') }}" class="button">{{ _('Import Tasks') }}</a>
   </div>
 {% endif %}
 
@@ -50,11 +50,16 @@
         <div "one-field">{{ form_field(batch_form['query'], True) }}</div>
       </div>
       <div class="billboard content-container">
+        <h5>{{ _('Invalidation Criteria') }}</h5>
         {{ criterion_formset.management_form }}
         {% for criterion_form in criterion_formset %}
           <div class="row">
-            {{ criterion_form }}
+            {{ criterion_form }} <a href=''>x</a>
           </div>
+          <div class="actions-container">
+            <a href=''>{{_('Add Criterion')}}</a>
+          </div>
+
         {% endfor %}
         </div>
       <h5>{{ _('Base Task Description') }}</h5>

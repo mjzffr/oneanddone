@@ -60,9 +60,10 @@ class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
 class BugzillaBug(models.Model):
     summary = models.CharField(max_length=255)
     bugzilla_id = models.IntegerField(max_length=20, unique=True)
+    tasks = generic.GenericRelation('Task')
 
     def __unicode__(self):
-        return ' '.join(['Bug', self.bugzilla_id])
+        return ' '.join(['Bug', str(self.bugzilla_id)])
 
 
 class TaskProject(CachedModel, CreatedModifiedModel, CreatedByModel):

@@ -205,7 +205,7 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
             queryset=TaskInvalidationCriterion.objects.none(),
             prefix='criteria',
             **kwargs)
-        kwargs['initial'] = {'end_date' : date.today() + timedelta(days=90)}
+        kwargs['initial'] = {'end_date' : date.today() + timedelta(days=30)}
         task_form = TaskForm(instance=None, prefix='task', **kwargs)
 
         return {'criterion_formset': criterion_formset,
@@ -226,7 +226,7 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
         else:
             assert self.stage == 'preview'
             self.request.session['task_import_data'] = self.request.POST
-            self.request.session['task_import_bugs'] = bugs = self._get_bugs(forms['batch_form'])
+            self.request.session['task_import_bugs'] = bugs = forms['batch_form'].cleaned_data['_fresh_bugs']
             ctx = forms
             ctx['basename'] = forms['task_form'].cleaned_data['name']
             ctx['bug_ids'] = [bug['id'] for bug in bugs]
@@ -281,7 +281,7 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
             bug_obj.summary = bug['summary']
             bug_obj.save()
             task.pk = None
-            task.name = ' '.join([basename, 'Bug', str(bug['id'])])
+            task.name = ' '.join([basename, str(bug_obj)])
             task.imported_item = bug_obj
             task.save()
             task.replace_keywords(keywords, self.request.user)
@@ -294,9 +294,6 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
         if self.stage not in ['initial', 'preview', 'confirm']:
             raise ValidationError(_('Form data is missing or has been tampered.'))
         return self.stage
-
-    def _get_bugs(self, batch_form):
-        return request_bugs(batch_form.cleaned_data['query'].split('?')[1])
 
     def _reset_session(self):
         for name in ['task_import_data', 'task_import_bugs']:
