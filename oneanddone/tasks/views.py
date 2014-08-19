@@ -175,16 +175,9 @@ class ListTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, FilterView):
     filterset_class = TasksFilterSet
 
 
-import logging
-log = logging.getLogger('playdoh')
-
-
 class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.TemplateView):
 
     def get_template_names(self):
-        log.debug('Session %r' % self.request.session.get('task_import_data'))
-        log.debug('Bugs %r' % self.request.session.get('bugs'))
-        log.debug('Stage %r' % self.stage)
         if self.stage == 'preview':
             # After initial form submission
             return ['tasks/confirmation.html']
@@ -203,7 +196,7 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
                                          prefix='batch', **kwargs)
         criterion_formset = TaskInvalidCriteriaFormSet(
             queryset=TaskInvalidationCriterion.objects.none(),
-            prefix='criteria',
+            prefix='criterion',
             **kwargs)
         kwargs['initial'] = {'end_date' : date.today() + timedelta(days=30)}
         task_form = TaskForm(instance=None, prefix='task', **kwargs)
@@ -243,6 +236,7 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
         self.stage = None
         self._reset_session()
         forms = self.get_forms()
+        assert forms['criterion_formset'].total_form_count() == 1
         return self.render_to_response(self.get_context_data(**forms))
 
     def post(self, request, *args, **kwargs):

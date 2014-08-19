@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from django import forms
-#from django.forms.formsets import BaseFormSet, formset_factory
+from django.forms.models import BaseModelFormSet, modelformset_factory
 
 from django_ace import AceWidget
 from tower import ugettext as _
@@ -32,16 +32,22 @@ class TaskInvalidationCriterionForm(forms.ModelForm):
         widgets = {
             'field_name': forms.TextInput(attrs={'size': 15}),
             'field_value': forms.TextInput(attrs={'size': 15})
-           # 'relation': forms.Select(attrs={'initial':TaskInvalidationCriterion.EQUAL})
             }
 
-# class BaseInvalidCriteriaFormSet(BaseFormSet):
-#     def save(self):
-#         pass
 
-TaskInvalidCriteriaFormSet = forms.models.modelformset_factory(
+class BaseInvalidCriteriaFormSet(BaseModelFormSet):
+    def total_error_count(self):
+        """
+        Returns the number of errors across all forms in the formset.
+        """
+        return len(self.non_form_errors()) +\
+        sum(len(form_errors) for form_errors in self.errors)
+
+
+TaskInvalidCriteriaFormSet = modelformset_factory(
                                 TaskInvalidationCriterion,
-                                form=TaskInvalidationCriterionForm)
+                                form=TaskInvalidationCriterionForm,
+                                formset=BaseInvalidCriteriaFormSet)
 
 class TaskImportBatchForm(forms.ModelForm):
     def save(self, creator, *args, **kwargs):
@@ -50,7 +56,6 @@ class TaskImportBatchForm(forms.ModelForm):
         return self.instance
 
     def clean(self):
-        # TODO mzf: see limit and offset parameters to get first 100 "fresh" bugs (based on query and bug number)
         max_results = 100
         max_batch_size = 20
         cleaned_data = super(TaskImportBatchForm, self).clean()
@@ -102,8 +107,6 @@ class TaskImportBatchForm(forms.ModelForm):
             'description': forms.TextInput(attrs={'size': 100})
             }
 
-import logging
-log = logging.getLogger('playdoh')
 
 class TaskForm(forms.ModelForm):
     keywords = forms.CharField(required=False, widget=forms.TextInput(attrs={'size': 50}))
@@ -119,7 +122,6 @@ class TaskForm(forms.ModelForm):
     def save(self, creator, *args, **kwargs):
         self.instance.creator = creator
         super(TaskForm, self).save(*args, **kwargs)
-        log.debug('kwargs %r', kwargs)
         if kwargs.get('commit', True):
             self._process_keywords(creator)
         return self.instance

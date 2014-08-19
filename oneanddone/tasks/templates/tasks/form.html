@@ -12,6 +12,7 @@
 {% block site_js %}
   {{ super() }}
   {{ task_form.media['js'] }}
+  <script src="{{ static('js/criterion-formset.js') }}"></script>
 {% endblock %}
 
 {% from 'tasks/macros.html' import form_field %}
@@ -49,19 +50,9 @@
       <div class="row">
         <div "one-field">{{ form_field(batch_form['query'], True) }}</div>
       </div>
-      <div class="billboard content-container">
-        <h5>{{ _('Invalidation Criteria') }}</h5>
-        {{ criterion_formset.management_form }}
-        {% for criterion_form in criterion_formset %}
-          <div class="row">
-            {{ criterion_form }} <a href=''>x</a>
-          </div>
-          <div class="actions-container">
-            <a href=''>{{_('Add Criterion')}}</a>
-          </div>
 
-        {% endfor %}
-        </div>
+      {% include 'tasks/criterion_formset.html' %}
+
       <h5>{{ _('Base Task Description') }}</h5>
     {% endif %}
 
