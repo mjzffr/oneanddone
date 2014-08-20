@@ -31,6 +31,16 @@ class TaskInvalidationCriterion(models.Model):
     def __unicode__(self):
         return ''.join([self.field_name, self.relation, self.field_value])
 
+    field_name.help_text = """
+        Name of property that should be checked.
+    """
+    field_value.help_text = """
+        Target value of the property to be checked.
+    """
+    relation.help_text = """
+        Relationship (equality/inequality) between name and value.
+    """
+
 
 class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
     description = models.CharField(max_length=255,
@@ -45,7 +55,7 @@ class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
             (OTHER, 'Other')
         ),
         default=BUGZILLA)
-    # JSON-encoded results from the task import form
+    # JSON-encoded results from the task import form?
     template_task_data = models.TextField()
 
     def __unicode__(self):
@@ -54,6 +64,9 @@ class TaskImportBatch(CreatedModifiedModel, CreatedByModel):
     query.help_text = """
         The URL to the search query that yields the items you want to
         create tasks from.
+    """
+    description.help_text = """
+        A summary of what items are being imported.
     """
 
 

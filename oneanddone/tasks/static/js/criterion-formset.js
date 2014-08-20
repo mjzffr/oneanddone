@@ -23,7 +23,6 @@ $(function () {
 
   function delCriterion(event) {
     var currentRow = $("#" + event.target.id).parents("tr.extra-criterion");
-    console.log(currentRow)
     var rowsBelow = currentRow.nextAll();
     currentRow.remove();
     var numForms = parseInt(totalFormsField.val()) - 1;

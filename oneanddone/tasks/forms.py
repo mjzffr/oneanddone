@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from django import forms
-from django.forms.models import BaseModelFormSet, modelformset_factory
 
 from django_ace import AceWidget
 from tower import ugettext as _
@@ -25,7 +24,6 @@ class TaskInvalidationCriterionForm(forms.ModelForm):
         kwargs['initial'] = initial
         super(TaskInvalidationCriterionForm, self).__init__(*args, **kwargs)
 
-
     class Meta:
         model = TaskInvalidationCriterion
         fields = ('field_name', 'relation', 'field_value')
@@ -35,19 +33,9 @@ class TaskInvalidationCriterionForm(forms.ModelForm):
             }
 
 
-class BaseInvalidCriteriaFormSet(BaseModelFormSet):
-    def total_error_count(self):
-        """
-        Returns the number of errors across all forms in the formset.
-        """
-        return len(self.non_form_errors()) +\
-        sum(len(form_errors) for form_errors in self.errors)
-
-
-TaskInvalidCriteriaFormSet = modelformset_factory(
+TaskInvalidCriteriaFormSet = forms.models.modelformset_factory(
                                 TaskInvalidationCriterion,
-                                form=TaskInvalidationCriterionForm,
-                                formset=BaseInvalidCriteriaFormSet)
+                                form=TaskInvalidationCriterionForm)
 
 class TaskImportBatchForm(forms.ModelForm):
     def save(self, creator, *args, **kwargs):
@@ -79,7 +67,8 @@ class TaskImportBatchForm(forms.ModelForm):
 
     @staticmethod
     def _get_fresh_bugs(query, max_results, max_batch_size):
-        ''' Returns at most first `limit` bugs (ordered by bug id) that have not already been imported via `query`.
+        ''' Returns at most first `limit` bugs (ordered by bug id) that have
+            not already been imported via `query`.
         '''
         existing_bug_ids = set([bug.bugzilla_id for bug in BugzillaBug.objects.filter(tasks__batch__query__exact=query)])
 
@@ -97,7 +86,6 @@ class TaskImportBatchForm(forms.ModelForm):
             if len(fresh_bugs) >= max_batch_size:
                 return fresh_bugs[:20]
         return fresh_bugs
-
 
     class Meta:
         model = TaskImportBatch

@@ -45,14 +45,16 @@
     {% if action == 'Import' %}
       <input type="hidden" name="stage" value="preview" />
       <div class="row">
-        <div "one-field">{{ form_field(batch_form['description'], True) }}</div>
+        <div "one-field">{{ form_field(batch_form['description'], True, True) }}</div>
       </div>
       <div class="row">
-        <div "one-field">{{ form_field(batch_form['query'], True) }}</div>
+        <div "one-field">{{ form_field(batch_form['query'], True, True) }}</div>
       </div>
-
-      {% include 'tasks/criterion_formset.html' %}
-
+      <div class="billboard content-container">
+        <h5>{{ _('Invalidation Criteria') }}</h5>
+        <p>{{_('Under what conditions should the tasks imported by this batch become invalid?')}}</p>
+        {% include 'tasks/criterion_formset.html' %}
+      </div>
       <h5>{{ _('Base Task Description') }}</h5>
     {% endif %}
 

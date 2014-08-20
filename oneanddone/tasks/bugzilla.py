@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 import requests
 
 _baseurl = 'https://bugzilla.mozilla.org/rest/bug'
@@ -17,7 +21,9 @@ def _request_json(url, params):
         return {}
 
 def request_bugs(query, fields=['id','summary'], offset=0, limit=99):
-    """ Returns list of at most first `limit` bugs (starting at `offset`) from Bugzilla@Mozilla, if any. The bugs are ordered by bug id."""
+    """ Returns list of at most first `limit` bugs (starting at `offset`) from
+        Bugzilla@Mozilla, if any. The bugs are ordered by bug id.
+    """
     params = {'include_fields' : ','.join(fields), 'offset':offset, 'limit':limit}
     url = ''.join([_baseurl, '?', query])
     return _request_json(url, params).get('bugs') or []

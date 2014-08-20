@@ -206,7 +206,7 @@ class ImportTasksView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Temp
                 'task_form': task_form}
 
     def get_context_data(self, **kwargs):
-        # Won't have to do this as of Django 1.5
+        # TODO: Won't have to do ctx=kwargs as of Django 1.5
         # https://docs.djangoproject.com/en/1.5/ref/class-based-views/mixins-simple/
         ctx = kwargs
         ctx['action'] = 'Import'
@@ -305,7 +305,6 @@ class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Creat
         #del ctx['form']
         ctx['action'] = 'Add'
         ctx['cancel_url'] = reverse('tasks.list')
-        ctx['ctx'] = ctx
         return ctx
 
     def form_valid(self, form):
@@ -314,7 +313,6 @@ class CreateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.Creat
         messages.success(self.request, _('Your task has been created.'))
         return redirect('tasks.list')
 
-# TODO mzf review/fix/add tests
 
 class UpdateTaskView(LoginRequiredMixin, MyStaffUserRequiredMixin, generic.UpdateView):
     model = Task
